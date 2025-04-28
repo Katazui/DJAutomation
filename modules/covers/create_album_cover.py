@@ -220,7 +220,14 @@ def move_original_image(image_path, destination_folder):
 def get_configuration():
     """
     Let the user select from the keys in CONFIGURATIONS (in albumCoverConfig.json).
+    If no configurations exist, prompt the user to create a default file.
     """
+    # Check if configurations dictionary is empty
+    if not CONFIGURATIONS:
+        print(f"{MSG_WARNING}No configurations found!")
+        print(f"{MSG_NOTICE}Please create a default configuration file in the configuration folder first.")
+        return None
+    
     print(f"{MSG_STATUS}Available Configurations:")
     config_names = list(CONFIGURATIONS.keys())
     for idx, name in enumerate(config_names, start=1):
