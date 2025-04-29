@@ -127,7 +127,7 @@ APIS = {
 # ----------------------------------------------------------------
 
 PEXEL_TAGS = [
-    "minimalist", "simple background", "clean background", "abstract",
+    "minimalist", "simple background", "clean background", "abstract", 
     "white background", "black background", "nature", "landscape", "mountains",
     "forest", "sky", "sea", "beach", "sunset", "sunrise", "desert",
     "cityscape", "urban", "architecture", "buildings", "skyline", "street",

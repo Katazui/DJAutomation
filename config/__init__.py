@@ -57,8 +57,15 @@ def load_py_config(source_file: str, dest_file: Path) -> Dict[str, Any]:
     """
     config_path = ensure_config_file(source_file, dest_file)
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            return eval(f.read())
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("user_settings", config_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        
+        # Extract all uppercase variables as settings
+        settings = {k: v for k, v in module.__dict__.items() 
+                   if k.isupper() and not k.startswith('_')}
+        return settings
     except Exception as e:
         print(f"Error loading config file {config_path}: {e}")
         return {}

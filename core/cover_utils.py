@@ -33,7 +33,7 @@ def has_embedded_cover(file_path: str) -> bool:
         metadata = MP3(file_path, ID3=ID3)
         return bool(metadata and metadata.tags.getall('APIC'))
     except error:
-        return False
+            return False
 
 # ----------------------------------------------------------------
 #                 FETCH ALBUM COVER (HIGH-LEVEL)
@@ -73,7 +73,7 @@ def lastfm_cover(title: str, artist: str) -> Optional[str]:
     """Fetch album art from Last.fm API."""
     if not APIS["lastfm"]["enabled"]:
         return None
-        
+
     try:
         params = {
             "method": "track.getInfo",
@@ -99,7 +99,7 @@ def musicbrainz_cover(title: str, artist: str) -> Optional[str]:
     """Fetch album art from MusicBrainz API."""
     if not APIS["musicbrainz"]["enabled"]:
         return None
-        
+
     try:
         params = {"query": f"recording:{title} AND artist:{artist}", "fmt": "json"}
         r = requests.get(APIS["musicbrainz"]["url"], params=params, timeout=10)
@@ -108,7 +108,7 @@ def musicbrainz_cover(title: str, artist: str) -> Optional[str]:
             if recordings := data.get("recordings", []):
                 if releases := recordings[0].get("releases", []):
                     release_id = releases[0].get("id")
-                    return f"{APIS['musicbrainz']['cover_art_url']}{release_id}/front"
+                return f"{APIS['musicbrainz']['cover_art_url']}{release_id}/front"
     except Exception:
         pass
     return None
@@ -121,7 +121,7 @@ def deezer_cover(title: str, artist: str) -> Optional[str]:
     """Fetch album art from Deezer API."""
     if not APIS["deezer"]["enabled"]:
         return None
-        
+
     try:
         search_url = APIS["deezer"]["url"]
         query = f"{title} {artist}"
@@ -144,7 +144,7 @@ def spotify_cover(title: str, artist: str) -> Optional[str]:
     """Fetch album art from Spotify API."""
     if not APIS["spotify"]["enabled"]:
         return None
-        
+
     try:
         from modules.download.downloader import get_spotify_token
         token = get_spotify_token()
@@ -222,7 +222,7 @@ def crop_image_to_square(image: Image.Image) -> bytes:
     top = (height - size) // 2
     right = left + size
     bottom = top + size
-    
+
     cropped = image.crop((left, top, right, bottom))
     return image_to_jpeg_bytes(cropped)
 

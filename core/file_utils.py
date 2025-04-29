@@ -42,10 +42,10 @@ def remove_unwanted_brackets(text: str) -> str:
         
     # Remove parentheses that do NOT contain feat/featuring
     cleaned = re.sub(r'\((?!.*(?:feat|featuring).*).*?\)', '', text, flags=re.IGNORECASE)
-    
+
     # Remove brackets that do NOT contain feat/featuring
     cleaned = re.sub(r'\[(?!.*(?:feat|featuring).*).*?\]', '', cleaned, flags=re.IGNORECASE)
-    
+
     return cleaned.strip()
 
 

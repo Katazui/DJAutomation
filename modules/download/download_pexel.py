@@ -4,11 +4,22 @@ import os
 import requests
 import random
 import time
-from config.settings import PEXEL_API_KEY, PEXEL_API_URL, TAGS, USER_CONFIG_FOLDER, PEXEL_LOG_FILE as LOG_FILE, PEXEL_DOWNLOAD_FOLDER as DOWNLOAD_FOLDER
+from pathlib import Path
+from config.settings import (
+    PEXEL_API_KEY, 
+    PEXEL_TAGS, 
+    APIS, 
+    USER_CONTENT_DIR,
+)
 from core.color_utils import (
     COLOR_GREEN, COLOR_RED, COLOR_YELLOW, COLOR_RESET,
     MSG_NOTICE, MSG_ERROR, MSG_SUCCESS
 )
+
+# Define constants
+PEXEL_API_URL = APIS["pexel"]["url"]
+PEXEL_DOWNLOAD_FOLDER = USER_CONTENT_DIR / "albumCovers" / "pexel"
+PEXEL_LOG_FILE = USER_CONTENT_DIR / "albumCovers" / "downloaded_pexel_photos.txt"
 
 # Headers for the Pexels API request
 headers = {
@@ -75,7 +86,7 @@ def write_downloaded_photo_ids(file_path, photo_ids):
     except Exception as e:
         print(f"{MSG_ERROR}Exception occurred while writing to log file {file_path}: {e}")
 
-def search_and_download_photos(tags, total_photos=5, folder=DOWNLOAD_FOLDER, log_file=LOG_FILE):
+def search_and_download_photos(tags=None, total_photos=5, folder=None, log_file=None):
     """
     Downloads a total of `total_photos` from Pexels by randomly selecting tags.
     
@@ -85,8 +96,13 @@ def search_and_download_photos(tags, total_photos=5, folder=DOWNLOAD_FOLDER, log
     - folder (str): Destination folder for downloaded photos.
     - log_file (str): Path to the log file for tracking downloaded photo IDs.
     """
+    # Use default values if not provided
+    tags = tags or PEXEL_TAGS
+    folder = folder or str(PEXEL_DOWNLOAD_FOLDER)
+    log_file = log_file or str(PEXEL_LOG_FILE)
+    
     if not PEXEL_API_KEY:
-        print(f"{MSG_ERROR}:PEXEL_API_KEY is not set. Please add it to your .env file.")
+        print(f"{MSG_ERROR}PEXEL_API_KEY is not set. Please add it to your .env file.")
         return
 
     # Read already downloaded photo IDs to avoid duplicates
@@ -149,10 +165,9 @@ def search_and_download_photos(tags, total_photos=5, folder=DOWNLOAD_FOLDER, log
             # Optionally, remove the tag to avoid repeated failures
             available_tags.remove(tag)
 
-    # Write the newly downloaded photo IDs to the log file and path of download photo
+    # Write the newly downloaded photo IDs to the log file
     write_downloaded_photo_ids(log_file, new_downloaded_photo_ids)
-    path_of_downloaded_photo = os.path.join(folder, f"{new_downloaded_photo_ids}.jpg")
-    print(f"{MSG_SUCCESS}{len(new_downloaded_photo_ids)} new photos downloaded and logged: {path_of_downloaded_photo}")
+    print(f"{MSG_SUCCESS}{len(new_downloaded_photo_ids)} new photos downloaded and logged to {log_file}")
 
 if __name__ == "__main__":
     # This allows you to run the script directly for testing purposes
@@ -166,6 +181,6 @@ if __name__ == "__main__":
         print("[Error]: Please enter a valid positive integer for the number of photos.")
         sys.exit(1)
 
-    print(f"Tags to be used: {', '.join(TAGS)}")
+    print(f"Tags to be used: {', '.join(PEXEL_TAGS)}")
     print(f"Downloading {num_photos} photos in total from Pexels.")
-    search_and_download_photos(tags=TAGS, total_photos=num_photos)
+    search_and_download_photos(tags=PEXEL_TAGS, total_photos=num_photos)

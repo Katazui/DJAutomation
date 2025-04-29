@@ -119,6 +119,15 @@ MAX_UPLOADS = int(os.getenv("MAX_UPLOADS", "8"))
 PUBLISHED_HOUR = int(os.getenv("PUBLISHED_HOUR", "12"))
 PUBLISHED_MINUTE = int(os.getenv("PUBLISHED_MINUTE", "00"))
 
+# Mixcloud content paths
+USE_EXTERNAL_TRACK_DIR = os.getenv("USE_EXTERNAL_TRACK_DIR", "False").lower() == "true"
+LOCAL_TRACK_DIR = USER_CONTENT_DIR / "mixcloudContent" / "tracks"
+EXTERNAL_TRACK_DIR = Path(os.getenv("EXTERNAL_TRACK_DIR", str(LOCAL_TRACK_DIR)))
+COVER_IMAGE_DIRECTORY = USER_CONTENT_DIR / "mixcloudContent" / "covers"
+FINISHED_DIRECTORY = USER_CONTENT_DIR / "mixcloudContent" / "finished"
+TITLES_FILE = USER_CONTENT_DIR / "mixcloudContent" / "titles.txt"
+PUBLISHED_DATES = USER_CONTENT_DIR / "mixcloudContent" / "published_dates.json"
+
 TRACK_TAGS = [
     "Open Format",
     "Disc Jockey",

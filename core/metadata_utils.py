@@ -79,10 +79,10 @@ def glean_year_genre(info_dict: dict, artist: str, title: str) -> Tuple[str, str
     raw_year = "Unknown Year"
     if upload_date := info_dict.get("upload_date", ""):
         if len(upload_date) >= 4:
-            raw_year = upload_date[:4]
+                raw_year = upload_date[:4]
 
     raw_genre = info_dict.get("genre", "").strip() or "Unknown Genre"
-    
+
     if raw_genre.lower() == "unknown genre":
         if possible_genre := fetch_genre(artist, title):
             raw_genre = possible_genre
@@ -127,15 +127,15 @@ def update_id3_tags(file_path: str, artist: str, title: str, year: str, genre: s
     """
     try:
         audio = MP3(file_path, ID3=ID3)
-        
+
         # Title & Artist
         audio["TIT2"] = TIT2(encoding=3, text=title)
         audio["TPE1"] = TPE1(encoding=3, text=artist)
-        
+
         # Year & Genre
         audio["TDRC"] = TDRC(encoding=3, text=year or "Unknown Year")
         audio["TCON"] = TCON(encoding=3, text=genre or "Unknown Genre")
-        
+
         audio.save(v2_version=3)
         return True
     except Exception as e:
@@ -150,7 +150,7 @@ def check_metadata(file_path: str) -> None:
     """
     try:
         audio = MP3(file_path, ID3=ID3)
-        
+
         def get_tag_text(tag):
             return tag.text if hasattr(tag, 'text') else str(tag)
             
