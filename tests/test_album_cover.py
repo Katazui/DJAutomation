@@ -244,7 +244,8 @@ def test_error_handling(mock_image_open, sample_config):
     result = create_album_cover(sample_config, "corrupt_image.jpg", 10, "output.jpg")
     assert result == False
 
-# Integration Test - skipping interactive tests when running in test mode
+# Integration Test - skipping interactive tests when running in CI
+@pytest.mark.interactive
 @pytest.mark.skip(reason="Interactive test with multiple inputs, difficult to mock correctly")
 @patch('modules.covers.create_album_cover.create_album_cover')
 @patch('os.path.exists')
@@ -266,6 +267,7 @@ def test_main_function(mock_get_config, mock_listdir, mock_exists, mock_create_c
     assert mock_create_cover.called  # Should call create_album_cover
 
 # We need to completely skip this test due to interactive input issues
+@pytest.mark.interactive
 @pytest.mark.skip(reason="Interactive test with inputs that cannot be properly mocked")
 def test_run_album_covers():
     """Test the test run mode"""

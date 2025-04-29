@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -16,26 +16,48 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest pytest-cov
 
       - name: Set up environment variables
         env:
           MIXCLOUD_CLIENT_ID: ${{ secrets.MIXCLOUD_CLIENT_ID }}
           MIXCLOUD_CLIENT_SECRET: ${{ secrets.MIXCLOUD_CLIENT_SECRET }}
+          PEXEL_API_KEY: ${{ secrets.PEXEL_API_KEY }}
         run: |
           echo "MIXCLOUD_CLIENT_ID=${MIXCLOUD_CLIENT_ID}" >> $GITHUB_ENV
           echo "MIXCLOUD_CLIENT_SECRET=${MIXCLOUD_CLIENT_SECRET}" >> $GITHUB_ENV
+          echo "PEXEL_API_KEY=${PEXEL_API_KEY}" >> $GITHUB_ENV
+          # Create a basic .env file for testing
+          echo "MIXCLOUD_CLIENT_ID=${MIXCLOUD_CLIENT_ID}" > .env
+          echo "MIXCLOUD_CLIENT_SECRET=${MIXCLOUD_CLIENT_SECRET}" >> .env
+          echo "PEXEL_API_KEY=${PEXEL_API_KEY}" >> .env
+
+      - name: Create test directories
+        run: |
+          # Create necessary directories for testing
+          mkdir -p ~/Documents/DJCLI/configuration
+          mkdir -p ~/Documents/DJCLI/content/albumCovers/pexel
+          mkdir -p ~/Documents/DJCLI/content/download/download_music
+          mkdir -p ~/Documents/DJCLI/content/mixcloudContent
 
       - name: Run tests
         run: |
-          pytest tests/
+          pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
