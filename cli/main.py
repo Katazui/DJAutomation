@@ -358,8 +358,10 @@ def setup_argparser():
 
     # Testing
     test_parser = subparsers.add_parser("test", help="Run tests.")
-    test_parser.add_argument("--mixcloud", action="store_true")
-    test_parser.add_argument("--download", action="store_true")
+    test_parser.add_argument("--mixcloud", action="store_true", 
+                            help="Run tests for Mixcloud module only")
+    test_parser.add_argument("--download", action="store_true", 
+                            help="Run tests for download module only")
 
     # Config
     config_parser = subparsers.add_parser("config", help="Check or set API keys in .env and manage user settings.")
