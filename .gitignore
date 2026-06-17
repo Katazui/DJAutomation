@@ -61,6 +61,9 @@ coverage.xml
 .vscode/
 *.code-workspace
 
+# Cursor
+.cursor/
+
 # macOS
 .DS_Store
 .AppleDouble

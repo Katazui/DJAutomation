@@ -1,17 +1,31 @@
 """
 config/settings.py
 
-Central location for both general settings and Mixcloud-specific configurations.
-Sensitive credentials (Mixcloud, Spotify, Last.fm, etc.) should be in .env only.
+Central configuration for DJ Automation.
+Handles all settings, paths, and API configurations.
 """
 
 import os
-import json
-import sys
-import shutil
+from pathlib import Path
+from typing import Dict, Any
 from dotenv import load_dotenv
 
-# Color Codes
+# Load environment variables
+load_dotenv()
+
+# ----------------------------------------------------------------
+#                     BASE PATHS
+# ----------------------------------------------------------------
+
+CONFIG_DIR = Path(__file__).parent.absolute()
+PROJECT_ROOT = CONFIG_DIR.parent
+USER_CONFIG_DIR = Path.home() / "Documents" / "DJCLI" / "configuration"
+USER_CONTENT_DIR = Path.home() / "Documents" / "DJCLI" / "content"
+
+# ----------------------------------------------------------------
+#                     COLOR CODES
+# ----------------------------------------------------------------
+
 COLOR_RESET = "\033[0m"
 COLOR_RED = "\033[31m"
 COLOR_GREEN = "\033[32m"
@@ -21,7 +35,10 @@ COLOR_PURPLE = "\033[35m"
 COLOR_CYAN = "\033[36m"
 COLOR_GREY = "\033[37m"
 
-# Message Prefixes
+# ----------------------------------------------------------------
+#                     MESSAGE PREFIXES
+# ----------------------------------------------------------------
+
 MSG_ERROR = f"{COLOR_RED}[Error]{COLOR_RESET}: "
 MSG_NOTICE = f"{COLOR_YELLOW}[Notice]{COLOR_RESET}: "
 MSG_DEBUG = f"{COLOR_CYAN}[Debug]{COLOR_RESET}: "
@@ -31,67 +48,50 @@ MSG_WARNING = f"{COLOR_BLUE}[Warning]{COLOR_RESET}: "
 LINE_BREAK = f"{COLOR_GREY}----------------------------------------{COLOR_RESET}"
 
 # ----------------------------------------------------------------
-#             LOAD .ENV FILE VARIABLES (IF PRESENT)
+#                     GENERAL SETTINGS
 # ----------------------------------------------------------------
 
-# Make sure .env is in your .gitignore, so secrets aren’t committed.
-load_dotenv()
+USE_COLOR_LOGS = os.getenv("USE_COLOR_LOGS", "True").lower() == "true"
+DEBUG_MODE = os.getenv("DEBUG_MODE", "False").lower() == "true"
 
 # ----------------------------------------------------------------
-#      NON-SENSITIVE CONFIGURATIONS & PATHS
+#                     PATHS & DIRECTORIES
 # ----------------------------------------------------------------
 
-CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(CONFIG_DIR)
-
-DJ_POOL_BASE_PATH = os.environ.get(
+# Music download paths
+DJ_POOL_BASE_PATH = Path(os.getenv(
     "DJ_POOL_BASE_PATH",
-    os.path.join(PROJECT_ROOT, "content", "download", "download_music")
-)
-
-
-DOWNLOAD_FOLDER_NAME = os.environ.get(
+    USER_CONTENT_DIR / "download" / "download_music"
+))
+DOWNLOAD_FOLDER_NAME = Path(os.getenv(
     "DOWNLOAD_FOLDER_NAME",
-    os.path.expanduser("~/Downloads")
-)
-
-# ----------------------------------------------------------------
-#      DOWNLOADING CONFUGURATION & PATHS
-# ----------------------------------------------------------------
-
-# Path to store downloaded music links
-LINKS_FILE = os.environ.get(
+    Path.home() / "Downloads"
+))
+LINKS_FILE = Path(os.getenv(
     "LINKS_FILE",
-    os.path.join(PROJECT_ROOT, "content", "download", "musicLinks.txt")
-) # TODO: Refactor a Clearer Name
+    USER_CONTENT_DIR / "download" / "musicLinks.txt"
+))
+
+# Mixcloud paths
+MIXCLOUD_CONTENT_DIR = USER_CONTENT_DIR / "mixcloudContent"
+UPLOAD_LINKS_FILE = Path(os.getenv(
+    "UPLOAD_LINKS_FILE",
+    MIXCLOUD_CONTENT_DIR / "uploadLinks.txt"
+))
+
+# Album cover paths
+ALBUM_COVERS_DIR = USER_CONTENT_DIR / "albumCovers"
+ORIGINAL_IMAGES_FOLDER = ALBUM_COVERS_DIR / "pexel"
+DESTINATION_FOLDER = ALBUM_COVERS_DIR / "pexel_processed"
+OUTPUT_FOLDER = ALBUM_COVERS_DIR / "albumCovers_output"
 
 # ----------------------------------------------------------------
-#          LOGGING & GENERAL TOGGLES
+#                     API CREDENTIALS
 # ----------------------------------------------------------------
 
-USE_COLOR_LOGS = os.getenv("USE_COLOR_LOGS", "True").strip().lower() == "true"
-DEBUG_MODE = os.getenv("DEBUG_MODE", "False").strip().lower() == "true"
-
-# ----------------------------------------------------------------
-#   MIXCLOUD + OTHER SENSITIVE CREDENTIALS (FROM .ENV)
-# ----------------------------------------------------------------
-
+# Mixcloud
 MIXCLOUD_CLIENT_ID = os.getenv("MIXCLOUD_CLIENT_ID", "")
 MIXCLOUD_CLIENT_SECRET = os.getenv("MIXCLOUD_CLIENT_SECRET", "")
-
-SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
-SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
-
-LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "")
-DEEZER_API_KEY = os.getenv("DEEZER_API_KEY", "")
-MUSICBRAINZ_API_TOKEN = os.getenv("MUSICBRAINZ_API_TOKEN", "")
-
-# ----------------------------------------------------------------
-#   MIXCLOUD SETTINGS
-# ----------------------------------------------------------------
-
-# Example toggles or parameters for your Mixcloud logic:
-MIXCLOUD_ENABLED = True  # If you disable it, code won’t attempt uploads
 MIXCLOUD_PORT = int(os.getenv("MIXCLOUD_PORT", "8001"))
 MIXCLOUD_REDIRECT_URI = f"http://localhost:{MIXCLOUD_PORT}/"
 MIXCLOUD_AUTH_URL = (
@@ -99,27 +99,35 @@ MIXCLOUD_AUTH_URL = (
     f"?client_id={MIXCLOUD_CLIENT_ID}&redirect_uri={MIXCLOUD_REDIRECT_URI}"
 )
 
-# If you’re a Mixcloud Pro user, can schedule uploads
+# Spotify
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+
+# Other APIs
+LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "")
+DEEZER_API_KEY = os.getenv("DEEZER_API_KEY", "")
+MUSICBRAINZ_API_TOKEN = os.getenv("MUSICBRAINZ_API_TOKEN", "")
+PEXEL_API_KEY = os.getenv("PEXEL_API_KEY", "")
+
+# ----------------------------------------------------------------
+#                     MIXCLOUD SETTINGS
+# ----------------------------------------------------------------
+
+MIXCLOUD_ENABLED = True
 MIXCLOUD_PRO_USER = True
-
-# Optional paths or toggles for track & cover uploads
-USE_EXTERNAL_TRACK_DIR = os.getenv("USE_EXTERNAL_TRACK_DIR", "True").strip().lower() == "true"
-LOCAL_TRACK_DIR = os.getenv("LOCAL_TRACK_DIR", "/Users/haleakala/Documents/PythonAutomation/AutomaticSoundCloudUpload/tracks/")
-EXTERNAL_TRACK_DIR = os.getenv("EXTERNAL_TRACK_DIR", "/Volumes/DJKatazui-W/DJ Mixes")
-COVER_IMAGE_DIRECTORY = os.getenv("COVER_IMAGE_DIRECTORY", "/Users/haleakala/Documents/PythonAutomation/AutomaticSoundCloudUpload/images/")
-FINISHED_DIRECTORY = os.getenv("FINISHED_DIRECTORY", "/Users/haleakala/Documents/PythonAutomation/AutomaticSoundCloudUpload/finished/")
-PUBLISHED_DATES = os.getenv("PUBLISHED_DATES", "/Users/haleakala/Documents/PythonAutomation/AutomaticSoundCloudUpload/dates.txt")
-TITLES_FILE = os.getenv("TITLES_FILE", "/Users/haleakala/Documents/PythonAutomation/AutomaticSoundCloudUpload/titles.csv")
-UPLOAD_LINKS_FILE = os.getenv("UPLOAD_LINKS_FILE", "content/mixcloudContent/uploadLinks.txt")  # Where you store uploaded URLs
-
-# Max tracks to upload per run
 MAX_UPLOADS = int(os.getenv("MAX_UPLOADS", "8"))
-
-# Publish Time (for scheduled uploads)
 PUBLISHED_HOUR = int(os.getenv("PUBLISHED_HOUR", "12"))
 PUBLISHED_MINUTE = int(os.getenv("PUBLISHED_MINUTE", "00"))
 
-# Mixcloud track tags (max 5)
+# Mixcloud content paths
+USE_EXTERNAL_TRACK_DIR = os.getenv("USE_EXTERNAL_TRACK_DIR", "False").lower() == "true"
+LOCAL_TRACK_DIR = USER_CONTENT_DIR / "mixcloudContent" / "tracks"
+EXTERNAL_TRACK_DIR = Path(os.getenv("EXTERNAL_TRACK_DIR", str(LOCAL_TRACK_DIR)))
+COVER_IMAGE_DIRECTORY = USER_CONTENT_DIR / "mixcloudContent" / "covers"
+FINISHED_DIRECTORY = USER_CONTENT_DIR / "mixcloudContent" / "finished"
+TITLES_FILE = USER_CONTENT_DIR / "mixcloudContent" / "titles.txt"
+PUBLISHED_DATES = USER_CONTENT_DIR / "mixcloudContent" / "published_dates.json"
+
 TRACK_TAGS = [
     "Open Format",
     "Disc Jockey",
@@ -129,10 +137,10 @@ TRACK_TAGS = [
 ]
 
 # ----------------------------------------------------------------
-#   OPTIONAL: APIS DICTIONARY FOR CENTRALIZED API ENDPOINTS
+#                     API CONFIGURATIONS
 # ----------------------------------------------------------------
 
-APIS = {
+APIS: Dict[str, Dict[str, Any]] = {
     "spotify": {
         "enabled": True,
         "url": "https://api.spotify.com/v1/search",
@@ -161,183 +169,39 @@ APIS = {
         "client_id": MIXCLOUD_CLIENT_ID,
         "client_secret": MIXCLOUD_CLIENT_SECRET,
         "auth_url": MIXCLOUD_AUTH_URL,
-        # Additional endpoints or keys if needed
+    },
+    "pexel": {
+        "enabled": True,
+        "api_key": PEXEL_API_KEY,
+        "url": "https://api.pexels.com/v1/search",
     },
 }
 
 # ----------------------------------------------------------------
-#   PEXEL API CONFIGURATION
+#                     PEXEL SETTINGS
 # ----------------------------------------------------------------
 
-# Pexels Configuration
-PEXEL_API_KEY = os.getenv('PEXEL_API_KEY', '')
-PEXEL_API_URL = 'https://api.pexels.com/v1/search'
-
-# Tags for Photo Search 
-TAGS = [ # TODO: Refactor a Clearer Name
-    'minimalist', 'simple background', 'clean background', 'abstract', 'white background', 'black background',
-    'nature', 'landscape', 'mountains', 'forest', 'sky', 'sea', 'beach', 'sunset', 'sunrise', 'desert',
-    'cityscape', 'urban', 'architecture', 'buildings', 'skyline', 'street',
-    'texture', 'pattern', 'fabric', 'wood', 'marble', 'brick', 'concrete', 'metal',
-    'gradient', 'blurred background', 'soft colors', 'pastel colors', 'bokeh', 'aesthetic', 'empty space'
+PEXEL_TAGS = [
+    "minimalist", "simple background", "clean background", "abstract",
+    "white background", "black background", "nature", "landscape", "mountains",
+    "forest", "sky", "sea", "beach", "sunset", "sunrise", "desert",
+    "cityscape", "urban", "architecture", "buildings", "skyline", "street",
+    "texture", "pattern", "fabric", "wood", "marble", "brick", "concrete", "metal",
+    "gradient", "blurred background", "soft colors", "pastel colors", "bokeh",
+    "aesthetic", "empty space"
 ]
 
-USER_CONFIG_DJCLI = os.path.expanduser("~/Documents/DJCLI")
-PEXEL_DOWNLOAD_FOLDER = os.path.join(USER_CONFIG_DJCLI, "content", "download", "download_pexel")
-PEXEL_LOG_FILE = os.path.join(USER_CONFIG_DJCLI, "content", "albumCovers", "downloaded_pexel_photos.txt")
-
 # ----------------------------------------------------------------
-#   ALBUM COVER CONFIGURATION (JSON)
+#                     ALBUM COVER SETTINGS
 # ----------------------------------------------------------------
 
-DEFAULT_JSON_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "default_albumCoverConfig.json"
-)
-
-USER_DOCS = os.path.expanduser("~/Documents")
-USER_CONFIG_FOLDER = os.path.join(USER_DOCS, "DJCLI", "configuration")
-USER_CONFIG_PATH = os.path.join(USER_CONFIG_FOLDER, "albumCoverConfig.json")
-
-def ensure_album_cover_config():
-    if not os.path.exists(USER_CONFIG_FOLDER):
-        os.makedirs(USER_CONFIG_FOLDER, exist_ok=True)
-    if not os.path.exists(USER_CONFIG_PATH):
-        if not os.path.exists(DEFAULT_JSON_PATH):
-            raise FileNotFoundError(f"Default album cover config not found at {DEFAULT_JSON_PATH}")
-        shutil.copyfile(DEFAULT_JSON_PATH, USER_CONFIG_PATH)
-        print(f"{MSG_NOTICE}Created user album cover config at {USER_CONFIG_PATH}. Please edit to customize album covers.")
-    else:
-        print(f"{MSG_STATUS}Loaded existing album cover config from: {USER_CONFIG_PATH}")
-    return USER_CONFIG_PATH
-
-ALBUM_COVER_CONFIG = {}
+# Load album cover configuration
 try:
-    user_json_path = ensure_album_cover_config()
-    with open(user_json_path, "r", encoding="utf-8") as f:
-        ALBUM_COVER_CONFIG = json.load(f)
-except Exception as e:
-    print(f"{MSG_ERROR}Could not load albumCoverConfig.json: {e}")
-    ALBUM_COVER_CONFIG = {}
-
-GLOBAL_SETTINGS = ALBUM_COVER_CONFIG.get("GLOBAL_SETTINGS", {})
-CONFIGURATIONS = ALBUM_COVER_CONFIG.get("CONFIGURATIONS", {})
-
-PASTE_LOGO = GLOBAL_SETTINGS.get("PASTE_LOGO", True)
-ORIGINAL_IMAGES_FOLDER = os.path.join(USER_DOCS, "DJCLI", "content", "albumCovers", "pexel")
-DESTINATION_FOLDER = os.path.join(USER_DOCS, "DJCLI", "content", "albumCovers", "pexel_processed")
-OUTPUT_FOLDER = os.path.join(USER_DOCS, "DJCLI", "content", "albumCovers", "albumCovers_output")
-
-# ----------------------------------------------------------------
-#   PYTHON-BASED SETTINGS CONFIGURATION (for user overrides)
-# ----------------------------------------------------------------
-
-# Set the default Python settings file (packaged with your code)
-DEFAULT_PY_SETTINGS = os.path.join(CONFIG_DIR, "default_settings.py")
-# Set the destination user settings file (user-writable folder)
-USER_PY_SETTINGS = os.path.join(USER_CONFIG_FOLDER, "user_settings.py")
-
-def ensure_user_py_settings():
-    if not os.path.exists(USER_CONFIG_FOLDER):
-        os.makedirs(USER_CONFIG_FOLDER, exist_ok=True)
-    if not os.path.exists(USER_PY_SETTINGS):
-        if not os.path.exists(DEFAULT_PY_SETTINGS):
-            raise FileNotFoundError(f"Default Python settings not found at {DEFAULT_PY_SETTINGS}")
-        shutil.copyfile(DEFAULT_PY_SETTINGS, USER_PY_SETTINGS)
-        print(f"[Notice]: Copied default_settings.py to {USER_PY_SETTINGS}.")
-    return USER_PY_SETTINGS
-
-def load_user_py_settings_as_dict():
-    user_file = ensure_user_py_settings()
-    # if user_file:
-    #     print(f"{MSG_STATUS}Found user settings from {user_file}")
-    user_namespace = {}
-    try:
-        with open(user_file, "r", encoding="utf-8") as f:
-            code = f.read()
-        exec(code, user_namespace, user_namespace)
-    except Exception as e:
-        if DEBUG_MODE:
-            print(f"{MSG_ERROR}Could not execute user_settings.py, might be loaded via .env: {e}")
-    return user_namespace
-
-USER_PY_CFG = load_user_py_settings_as_dict()
-# Override environment-derived variables only if not already set via .env
-if not MIXCLOUD_CLIENT_ID and "MIXCLOUD_CLIENT_ID" in USER_PY_CFG:
-    MIXCLOUD_CLIENT_ID = USER_PY_CFG["MIXCLOUD_CLIENT_ID"]
-    print(f"{MSG_NOTICE}Overriding MIXCLOUD_CLIENT_ID from user_settings.py")
-if not MIXCLOUD_CLIENT_SECRET and "MIXCLOUD_CLIENT_SECRET" in USER_PY_CFG:
-    MIXCLOUD_CLIENT_SECRET = USER_PY_CFG["MIXCLOUD_CLIENT_SECRET"]
-    print(f"{MSG_NOTICE}Overriding MIXCLOUD_CLIENT_SECRET from user_settings.py")
-if not SPOTIFY_CLIENT_ID and "SPOTIFY_CLIENT_ID" in USER_PY_CFG:
-    SPOTIFY_CLIENT_ID = USER_PY_CFG["SPOTIFY_CLIENT_ID"]
-    print(f"{MSG_NOTICE}Overriding SPOTIFY_CLIENT_ID from user_settings.py")
-if not SPOTIFY_CLIENT_SECRET and "SPOTIFY_CLIENT_SECRET" in USER_PY_CFG:
-    SPOTIFY_CLIENT_SECRET = USER_PY_CFG["SPOTIFY_CLIENT_SECRET"]
-    print(f"{MSG_NOTICE}Overriding SPOTIFY_CLIENT_SECRET from user_settings.py")
-if not LASTFM_API_KEY and "LASTFM_API_KEY" in USER_PY_CFG:
-    LASTFM_API_KEY = USER_PY_CFG["LASTFM_API_KEY"]
-    print(f"{MSG_NOTICE}Overriding LASTFM_API_KEY from user_settings.py")               
-# if not DEEZER_API_KEY and "DEEZER_API_KEY" in USER_PY_CFG:
-#     DEEZER_API_KEY = USER_PY_CFG["DEEZER_API_KEY"]
-# if not MUSICBRAINZ_API_TOKEN and "MUSICBRAINZ_API_TOKEN" in USER_PY_CFG:
-#     MUSICBRAINZ_API_TOKEN = USER_PY_CFG["MUSICBRAINZ_API_TOKEN"]
-if not PEXEL_API_KEY and "PEXEL_API_KEY" in USER_PY_CFG:
-    PEXEL_API_KEY = USER_PY_CFG["PEXEL_API_KEY"]
-    print(f"{MSG_NOTICE}Overriding PEXEL_API_KEY from user_settings.py")
-
-# Override Customization Settings
-if "COVER_IMAGE_DIRECTORY" in USER_PY_CFG:
-    COVER_IMAGE_DIRECTORY = USER_PY_CFG["COVER_IMAGE_DIRECTORY"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding COVER_IMAGE_DIRECTORY from user_settings.py")
-if "FINISHED_DIRECTORY" in USER_PY_CFG:
-    FINISHED_DIRECTORY = USER_PY_CFG["FINISHED_DIRECTORY"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding FINISHED_DIRECTORY from user_settings.py")
-if "PUBLISHED_DATES" in USER_PY_CFG:
-    PUBLISHED_DATES = USER_PY_CFG["PUBLISHED_DATES"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding PUBLISHED_DATES from user_settings.py")
-if "TITLES_FILE" in USER_PY_CFG:
-    TITLES_FILE = USER_PY_CFG["TITLES_FILE"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding TITLES_FILE from user_settings.py")
-if "UPLOAD_LINKS_FILE" in USER_PY_CFG:
-    UPLOAD_LINKS_FILE = USER_PY_CFG["UPLOAD_LINKS_FILE"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding UPLOAD_LINKS_FILE from user_settings.py")
-if LINKS_FILE and "LINKS_FILE" in USER_PY_CFG:
-    LINKS_FILE = USER_PY_CFG["LINKS_FILE"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding LINKS_FILE from user_settings.py")
-if "EXTERNAL_TRACK_DIR" in USER_PY_CFG:
-    EXTERNAL_TRACK_DIR = USER_PY_CFG["EXTERNAL_TRACK_DIR"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding EXTERNAL_TRACK_DIR from user_settings.py")
-if "LOCAL_TRACK_DIR" in USER_PY_CFG:
-    LOCAL_TRACK_DIR = USER_PY_CFG["LOCAL_TRACK_DIR"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding LOCAL_TRACK_DIR from user_settings.py")
-if "USE_EXTERNAL_TRACK_DIR" in USER_PY_CFG:
-    USE_EXTERNAL_TRACK_DIR = USER_PY_CFG["USE_EXTERNAL_TRACK_DIR"]
-    if DEBUG_MODE:
-        print(f"{MSG_NOTICE}Overriding USE_EXTERNAL_TRACK_DIR from user_settings.py")
-
-# ----------------------------------------------------------------
-#   REMINDER: DO NOT STORE SECRETS IN THIS FILE; USE .env INSTEAD.
-# ----------------------------------------------------------------
-"""
-All sensitive credentials (Mixcloud, Spotify, Last.fm, etc.) 
-are read from .env to avoid committing secrets to source control.
-Make sure your .env is in .gitignore and not pushed publicly.
-
-Sample .env fields:
-
-MIXCLOUD_CLIENT_ID=""
-MIXCLOUD_CLIENT_SECRET=""
-SPOTIFY_CLIENT_ID=""
-SPOTIFY_CLIENT_SECRET=""
-LASTFM_API_KEY=""
-PEXEL_API_KEY=""
-"""
+    from . import ALBUM_COVER_CONFIG
+    GLOBAL_SETTINGS = ALBUM_COVER_CONFIG.get("GLOBAL_SETTINGS", {})
+    CONFIGURATIONS = ALBUM_COVER_CONFIG.get("CONFIGURATIONS", {})
+    PASTE_LOGO = GLOBAL_SETTINGS.get("PASTE_LOGO", True)
+except ImportError:
+    GLOBAL_SETTINGS = {}
+    CONFIGURATIONS = {}
+    PASTE_LOGO = True

@@ -7,6 +7,7 @@ Now includes a 'config' subcommand that:
 - Reads/writes a .env file
 - Honors `--set KEY=VALUE` flags to update or add new keys directly from the CLI
 - Allows initialization of user_settings.py with --init-settings flag.
+- Provides a simple setup command for first-time users
 """
 
 import argparse
@@ -35,19 +36,15 @@ from core.color_utils import (
     MSG_STATUS, MSG_NOTICE, MSG_WARNING, MSG_ERROR, LINE_BREAK, MSG_SUCCESS, MSG_DEBUG
 )
 from config.settings import (
-    TAGS, DOWNLOAD_FOLDER_NAME,
+    PEXEL_TAGS, DOWNLOAD_FOLDER_NAME,
     MIXCLOUD_CLIENT_ID, MIXCLOUD_CLIENT_SECRET,
     SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET,
     LASTFM_API_KEY, DEEZER_API_KEY,
     MUSICBRAINZ_API_TOKEN, PEXEL_API_KEY,
-    DEBUG_MODE, LINKS_FILE, USER_CONFIG_FOLDER,
-    ensure_user_py_settings, load_user_py_settings_as_dict,
-    LOCAL_TRACK_DIR, EXTERNAL_TRACK_DIR, USE_EXTERNAL_TRACK_DIR,
-    DJ_POOL_BASE_PATH, COVER_IMAGE_DIRECTORY, FINISHED_DIRECTORY,
-    PUBLISHED_DATES, TITLES_FILE, UPLOAD_LINKS_FILE,
-    
+    DEBUG_MODE, LINKS_FILE, 
 )
 
+from pathlib import Path
 from core.version import __version__
 
 def banner():
@@ -85,20 +82,23 @@ def print_loaded_configurations():
     # print(f"    {MSG_DEBUG}DEEZER_API_KEY: {DEEZER_API_KEY}")
     # print(f"    {MSG_DEBUG}MUSICBRAINZ_API_TOKEN: {MUSICBRAINZ_API_TOKEN}")
     print(f"    {MSG_DEBUG}PEXEL_API_KEY: {COLOR_GREEN}{PEXEL_API_KEY}")
-    print(f"  {MSG_NOTICE}Folder Paths:")
-    print(f"    {MSG_DEBUG}DJ_POOL_BASE_PATH: {COLOR_GREEN}{DJ_POOL_BASE_PATH}")
-    print(f"    {MSG_DEBUG}DOWNLOADS_FOLDER: {COLOR_GREEN}{DOWNLOAD_FOLDER_NAME}")
-    print(f"    {MSG_DEBUG}COVER_IMAGE_DIRECTORY ({COLOR_YELLOW}up_mixes{COLOR_RESET}): {COLOR_GREEN}{COVER_IMAGE_DIRECTORY}")
-    print(f"    {MSG_DEBUG}FINISHED_DIRECTORY ({COLOR_YELLOW}up_mixes{COLOR_RESET}): {COLOR_GREEN}{FINISHED_DIRECTORY}")
-    if USE_EXTERNAL_TRACK_DIR:
-        print(f"    {MSG_DEBUG}EXTERNAL_TRACK_DIR ({COLOR_YELLOW}up_mixes{COLOR_RESET}): {COLOR_GREEN}{EXTERNAL_TRACK_DIR}")
-    else:
-        print(f"    {MSG_DEBUG}LOCAL_TRACK_DIR ({COLOR_YELLOW}up_mixes{COLOR_RESET}): {COLOR_GREEN}{LOCAL_TRACK_DIR}")
-    print(f"  {MSG_NOTICE}File Paths:")
-    print(f"    {MSG_DEBUG}TITLES_FILE ({COLOR_YELLOW}up_mixes): {COLOR_GREEN}{TITLES_FILE}")
-    print(f"    {MSG_DEBUG}PUBLISHED_DATES ({COLOR_YELLOW}up_mixes{COLOR_RESET}): {COLOR_GREEN}{PUBLISHED_DATES}")
-    print(f"    {MSG_DEBUG}UPLOAD_LINKS_FILE ({COLOR_YELLOW}up_mixes{COLOR_RESET}): {COLOR_GREEN}{UPLOAD_LINKS_FILE}")
-    print(f"    {MSG_DEBUG}LINKS_FILE ({COLOR_YELLOW}dl_audio{COLOR_RESET}): {COLOR_GREEN}{LINKS_FILE}")
+    
+    # Import paths after they're defined
+    from config.settings import (
+        USER_CONFIG_DIR, USER_CONTENT_DIR, DJ_POOL_BASE_PATH, ALBUM_COVERS_DIR
+    )
+    
+    print(f"  {MSG_NOTICE}Configuration Directories:")
+    print(f"    {MSG_DEBUG}Configuration: {COLOR_GREEN}{USER_CONFIG_DIR}")
+    print(f"    {MSG_DEBUG}Content: {COLOR_GREEN}{USER_CONTENT_DIR}")
+    
+    print(f"  {MSG_NOTICE}Content Directories:")
+    print(f"    {MSG_DEBUG}DJ Pool: {COLOR_GREEN}{DJ_POOL_BASE_PATH}")
+    print(f"    {MSG_DEBUG}Downloads: {COLOR_GREEN}{DOWNLOAD_FOLDER_NAME}")
+    print(f"    {MSG_DEBUG}Album Covers: {COLOR_GREEN}{ALBUM_COVERS_DIR}")
+    
+    print(f"  {MSG_NOTICE}Key Files:")
+    print(f"    {MSG_DEBUG}Music Links: {COLOR_GREEN}{LINKS_FILE}")
     print(LINE_BREAK)
 
 
@@ -117,14 +117,16 @@ def handle_download_music_subcommand(args):
         organize_downloads(requested=False)
 
 def handle_download_pexel_subcommand(args):
-    one_folder_up = os.path.dirname(USER_CONFIG_FOLDER)
-    folder_path = os.path.join(one_folder_up, 'content', 'albumCovers', 'pexel')
-    log_path = os.path.join(one_folder_up, 'content', 'albumCovers', 'downloaded_pexel_photos.txt')
+    from config.settings import USER_CONTENT_DIR
+    folder_path = USER_CONTENT_DIR / 'albumCovers' / 'pexel'
+    log_path = USER_CONTENT_DIR / 'albumCovers' / 'downloaded_pexel_photos.txt'
+    folder_path.mkdir(parents=True, exist_ok=True)
+    
     search_and_download_photos(
-        tags=TAGS,
+        tags=PEXEL_TAGS,
         total_photos=args.num_photos,
-        folder=folder_path,
-        log_file=log_path
+        folder=str(folder_path),
+        log_file=str(log_path)
     )
 
 def handle_organize_subcommand(args):
@@ -152,7 +154,12 @@ def handle_config_subcommand(args):
     if --init-settings is specified, creates user_settings.py in the
     user configuration folder.
     """
-    dotenv_path = os.path.join(project_root, ".env")
+    dotenv_path = Path(project_root) / ".env"
+    
+    # Setup mode - streamlined onboarding for new users
+    if args.setup:
+        return setup_config_wizard(dotenv_path)
+    
     env_dict = parse_env_file(dotenv_path)
 
     changed_anything = False
@@ -189,65 +196,96 @@ def handle_config_subcommand(args):
         for k, v in updated_keys.items():
             print(f"{MSG_NOTICE}Set {k}={v} in .env")
 
-    # NEW: If user passed --init-settings, create user_settings.py in user config folder.
+    # Init user settings
     if args.init_settings:
-        try:
-            from config.settings import ensure_user_py_settings
-            user_settings_path = ensure_user_py_settings()
-            print(f"{MSG_SUCCESS}User settings file initialized at: {user_settings_path}")
-        except Exception as e:
-            print(f"{MSG_ERROR}Failed to initialize user settings: {e}")
-
-    if args.print:
+        init_user_settings()
+    
+    # Show current config
+    if args.show:
         print_loaded_configurations()
 
-    api_keys = [
-        ("MIXCLOUD_CLIENT_ID",     MIXCLOUD_CLIENT_ID),
-        ("MIXCLOUD_CLIENT_SECRET", MIXCLOUD_CLIENT_SECRET),
-        ("SPOTIFY_CLIENT_ID",      SPOTIFY_CLIENT_ID),
-        ("SPOTIFY_CLIENT_SECRET",  SPOTIFY_CLIENT_SECRET),
-        ("LASTFM_API_KEY",         LASTFM_API_KEY),
-        # ("DEEZER_API_KEY",         DEEZER_API_KEY),
-        # ("MUSICBRAINZ_API_TOKEN",  MUSICBRAINZ_API_TOKEN),
-        ("PEXEL_API_KEY",          PEXEL_API_KEY),
-    ]
 
-    missing = []
-    for key_name, val in api_keys:
-        if not val:
-            missing.append(key_name)
+def setup_config_wizard(dotenv_path):
+    """
+    Interactive wizard to guide new users through the DJ Automation setup.
+    """
+    print(f"{COLOR_CYAN}========================================")
+    print(f"   DJ Automation - First Time Setup   ")
+    print(f"========================================{COLOR_RESET}")
+    print(f"This wizard will guide you through setting up DJ Automation.")
+    print(f"You'll need to provide API keys for various services.")
+    print(f"You can skip any step and configure it later.\n")
+    
+    # Initialize configs
+    init_user_settings()
+    
+    # Read existing environment
+    env_dict = parse_env_file(dotenv_path)
+    
+    # Collect API keys
+    print(f"{COLOR_CYAN}API Configuration:{COLOR_RESET}")
+    
+    # Get Mixcloud credentials
+    mixcloud_id = input(f"Mixcloud Client ID [{env_dict.get('MIXCLOUD_CLIENT_ID', '')}]: ").strip()
+    if mixcloud_id:
+        env_dict["MIXCLOUD_CLIENT_ID"] = mixcloud_id
+    
+    mixcloud_secret = input(f"Mixcloud Client Secret [{env_dict.get('MIXCLOUD_CLIENT_SECRET', '')}]: ").strip()
+    if mixcloud_secret:
+        env_dict["MIXCLOUD_CLIENT_SECRET"] = mixcloud_secret
+    
+    # Get Spotify credentials
+    spotify_id = input(f"Spotify Client ID [{env_dict.get('SPOTIFY_CLIENT_ID', '')}]: ").strip()
+    if spotify_id:
+        env_dict["SPOTIFY_CLIENT_ID"] = spotify_id
+    
+    spotify_secret = input(f"Spotify Client Secret [{env_dict.get('SPOTIFY_CLIENT_SECRET', '')}]: ").strip()
+    if spotify_secret:
+        env_dict["SPOTIFY_CLIENT_SECRET"] = spotify_secret
+    
+    # Get Last.fm API key
+    lastfm_key = input(f"Last.fm API Key [{env_dict.get('LASTFM_API_KEY', '')}]: ").strip()
+    if lastfm_key:
+        env_dict["LASTFM_API_KEY"] = lastfm_key
+    
+    # Get Pexel API key
+    pexel_key = input(f"Pexel API Key [{env_dict.get('PEXEL_API_KEY', '')}]: ").strip()
+    if pexel_key:
+        env_dict["PEXEL_API_KEY"] = pexel_key
+    
+    # Save to .env file
+    write_env_file(dotenv_path, env_dict)
+    
+    print(f"\n{MSG_SUCCESS}Configuration completed successfully!")
+    print(f"{MSG_NOTICE}User configuration directory: {Path.home() / 'Documents' / 'DJCLI' / 'configuration'}")
+    print(f"{MSG_NOTICE}User content directory: {Path.home() / 'Documents' / 'DJCLI' / 'content'}")
+    print(f"\nRun {COLOR_GREEN}dj config --show{COLOR_RESET} to see your current configuration.")
 
-    if not missing:
-        if changed_anything:
-            print(f"{MSG_SUCCESS}All provided keys saved. No missing keys in settings.py.")
-        else:
-            print(f"{MSG_SUCCESS}All keys appear to be set. No action required.")
-        return
 
-    print(f"{MSG_WARNING}Missing in settings.py: {', '.join(missing)}")
-    not_in_env = []
-    blank_in_env = []
-    for k in missing:
-        if k not in env_dict:
-            not_in_env.append(k)
-        elif env_dict[k].strip() == "":
-            blank_in_env.append(k)
-
-    if not_in_env or blank_in_env:
-        print(f"{MSG_WARNING}Keys missing or blank in .env: {', '.join(not_in_env + blank_in_env)}")
-        choice = input("Add placeholders to .env? [y/N]: ").strip().lower()
-        if choice == "y":
-            for k in not_in_env:
-                env_dict[k] = "PUT_YOUR_VALUE_HERE"
-            for k in blank_in_env:
-                if env_dict[k] == "":
-                    env_dict[k] = "PUT_YOUR_VALUE_HERE"
-            write_env_file(dotenv_path, env_dict)
-            print(f"{MSG_SUCCESS}Placeholders added. Please edit .env to set real values.")
-        else:
-            print(f"{MSG_NOTICE}Skipping placeholder creation.")
-    else:
-        print(f"{MSG_WARNING}They might be in .env but not loaded into settings.py. Check your logic.")
+def init_user_settings():
+    """Initialize user settings files"""
+    try:
+        # Import locally to avoid circular imports
+        from config import USER_CONFIG_DIR, ensure_config_file
+        
+        # Initialize user configuration files
+        user_settings_path = ensure_config_file(
+            "default_settings.py", 
+            USER_CONFIG_DIR / "user_settings.py"
+        )
+        
+        # Initialize album cover config
+        album_config_path = ensure_config_file(
+            "default_albumCoverConfig.json",
+            USER_CONFIG_DIR / "albumCoverConfig.json"
+        )
+        
+        print(f"{MSG_SUCCESS}User settings initialized:")
+        print(f"  - Settings: {user_settings_path}")
+        print(f"  - Album covers: {album_config_path}")
+        
+    except Exception as e:
+        print(f"{MSG_ERROR}Failed to initialize user settings: {e}")
 
 # ----------------------------------------------------------------
 #          Utility Functions
@@ -320,8 +358,10 @@ def setup_argparser():
 
     # Testing
     test_parser = subparsers.add_parser("test", help="Run tests.")
-    test_parser.add_argument("--mixcloud", action="store_true")
-    test_parser.add_argument("--download", action="store_true")
+    test_parser.add_argument("--mixcloud", action="store_true", 
+                            help="Run tests for Mixcloud module only")
+    test_parser.add_argument("--download", action="store_true", 
+                            help="Run tests for download module only")
 
     # Config
     config_parser = subparsers.add_parser("config", help="Check or set API keys in .env and manage user settings.")
@@ -335,6 +375,8 @@ def setup_argparser():
     config_parser.add_argument("--musicbrainz", type=str, help="Set MusicBrainz token.")
     config_parser.add_argument("--pexel",       type=str, help="Set Pexel API key.")
     config_parser.add_argument("--init-settings", action="store_true", help="Initialize (create) user_settings.py in the configuration folder.")
+    config_parser.add_argument("--setup",         action="store_true", help="Run setup wizard.")
+    config_parser.add_argument("--show",          action="store_true", help="Show current configuration.")
 
 
     return parser
@@ -344,39 +386,15 @@ def setup_argparser():
 # ----------------------------------------------------------------
 
 def main():
-    # Clear terminal screen
-    # os.system("cls" if os.name == "nt" else "clear")
-
+    # Add project root to path
     add_project_root_to_path()
 
-    # Load user settings so that if a user_settings.py exists in the user config folder,
-    # its values override the defaults.
+    # Load configuration
     try:
-        from config.settings import ensure_user_py_settings, load_user_py_settings_as_dict, DEFAULT_PY_SETTINGS
-        user_settings_path = ensure_user_py_settings()
-        user_cfg = load_user_py_settings_as_dict()
-        print(f"{MSG_STATUS}Loaded user settings from: {user_settings_path}")
-        # Optionally override specific settings:
-        global MIXCLOUD_CLIENT_ID, MIXCLOUD_CLIENT_SECRET, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
-        global LASTFM_API_KEY, DEEZER_API_KEY, MUSICBRAINZ_API_TOKEN, PEXEL_API_KEY
-        if "MIXCLOUD_CLIENT_ID" in user_cfg:
-            MIXCLOUD_CLIENT_ID = user_cfg["MIXCLOUD_CLIENT_ID"]
-        if "MIXCLOUD_CLIENT_SECRET" in user_cfg:
-            MIXCLOUD_CLIENT_SECRET = user_cfg["MIXCLOUD_CLIENT_SECRET"]
-        if "SPOTIFY_CLIENT_ID" in user_cfg:
-            SPOTIFY_CLIENT_ID = user_cfg["SPOTIFY_CLIENT_ID"]
-        if "SPOTIFY_CLIENT_SECRET" in user_cfg:
-            SPOTIFY_CLIENT_SECRET = user_cfg["SPOTIFY_CLIENT_SECRET"]
-        if "LASTFM_API_KEY" in user_cfg:
-            LASTFM_API_KEY = user_cfg["LASTFM_API_KEY"]
-        if "DEEZER_API_KEY" in user_cfg:
-            DEEZER_API_KEY = user_cfg["DEEZER_API_KEY"]
-        if "MUSICBRAINZ_API_TOKEN" in user_cfg:
-            MUSICBRAINZ_API_TOKEN = user_cfg["MUSICBRAINZ_API_TOKEN"]
-        if "PEXEL_API_KEY" in user_cfg:
-            PEXEL_API_KEY = user_cfg["PEXEL_API_KEY"]
+        from config import USER_CONFIG_DIR, USER_SETTINGS
+        print(f"{MSG_STATUS}Loaded configuration from: {USER_CONFIG_DIR}")
     except Exception as e:
-        print(f"{MSG_ERROR}Error loading user settings: {e}")
+        print(f"{MSG_ERROR}Error loading configuration: {e}")
 
     print(banner())
 
